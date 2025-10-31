@@ -180,30 +180,30 @@ def get_images_from_url(url):
                                     if 'variants' in product_data and 'value' in product_data['variants']:
                                         variants = product_data['variants']['value']
                                         if 'images' in variants:
-                                            # PRIMARY görseli (ana görsel)
+                                            # PRIMARY görseli (ana görsel) - zoom formatını kullan
                                             if 'PRIMARY' in variants['images']:
                                                 primary = variants['images']['PRIMARY']
                                                 if isinstance(primary, dict) and 'videoluxZoom' in primary:
                                                     zoom_url = primary['videoluxZoom'].get('url')
                                                     if zoom_url:
                                                         images.append(zoom_url)
+                                                # Fallback: videoluxProduct
+                                                elif isinstance(primary, dict) and 'videoluxProduct' in primary:
+                                                    prod_url = primary['videoluxProduct'].get('url')
+                                                    if prod_url:
+                                                        images.append(prod_url)
                                             
-                                            # GALLERY görselleri (diğer görseller) - videoluxZoom formatını öncelikli al
+                                            # GALLERY görselleri - sadece zoom formatındakileri al
                                             if 'GALLERY' in variants['images']:
                                                 gallery = variants['images']['GALLERY']
                                                 if isinstance(gallery, list):
                                                     for gallery_item in gallery:
                                                         if isinstance(gallery_item, dict):
-                                                            # Önce videoluxZoom'u dene (en büyük boyut)
+                                                            # Sadece videoluxZoom'u al (büyük görsel)
                                                             if 'videoluxZoom' in gallery_item:
                                                                 zoom_url = gallery_item['videoluxZoom'].get('url')
                                                                 if zoom_url:
                                                                     images.append(zoom_url)
-                                                            # Fallback: videoluxProduct
-                                                            elif 'videoluxProduct' in gallery_item:
-                                                                prod_url = gallery_item['videoluxProduct'].get('url')
-                                                                if prod_url:
-                                                                    images.append(prod_url)
                                 except:
                                     pass
                     
@@ -302,9 +302,14 @@ def get_images_from_url(url):
         exclude_keywords = ['logo', 'icon', 'banner', 'placeholder', 'blank', 'no-image', 'social']
         
         for img_url in normalized_images:
+            # product-gallery içerenleri at
+            if 'product-gallery' in img_url.lower():
+                continue
+            
             if not any(keyword in img_url.lower() for keyword in exclude_keywords):
-                # videoluxZoom ve videoluxProduct URL'leri zaten büyük görseller, dönüştürme yapma
-                is_videolux_url = 'videoluxzoom' in img_url.lower() or 'videoluxproduct' in img_url.lower() or 'product-zoom' in img_url.lower()
+                # videoluxZoom, videoluxProduct, product-zoom ve product-details-main URL'leri zaten büyük görseller, dönüştürme yapma
+                is_videolux_url = ('videoluxzoom' in img_url.lower() or 'videoluxproduct' in img_url.lower() or 
+                                   'product-zoom' in img_url.lower() or 'product-details-main' in img_url.lower())
                 
                 if is_videolux_url:
                     # Zaten büyük görsel, direkt ekle
@@ -313,11 +318,11 @@ def get_images_from_url(url):
                     # Küçük görselleri (thumbnail'ler) orijinal büyük versiyonlarına çevir
                     full_size_url = convert_to_full_size_image(img_url)
                 
-                # videoluxZoom URL'lerini en öncelikli yap (büyük görseller)
-                if 'videoluxzoom' in img_url.lower() or 'product-zoom' in img_url.lower():
+                # product-zoom ve product-details-main içerenleri en öncelikli yap
+                if 'product-zoom' in img_url.lower() or 'product-details-main' in img_url.lower() or 'videoluxzoom' in img_url.lower():
                     filtered_images.insert(0, full_size_url)
                 # Ürün görseli gibi görünen URL'leri önceliklendir
-                elif any(keyword in img_url.lower() for keyword in ['product', 'gallery', 'main', 'zoom', 'big', 'large', '/p/', '/products/']):
+                elif any(keyword in img_url.lower() for keyword in ['product', 'main', 'zoom', 'big', 'large', '/p/', '/products/']):
                     filtered_images.insert(0, full_size_url)
                 else:
                     filtered_images.append(full_size_url)
