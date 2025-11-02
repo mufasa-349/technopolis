@@ -193,17 +193,32 @@ def get_product_details(product_url, timeout=3):
                     product_data['brand'] = brand_elem.get_text(strip=True)
                     break
         
-        # Kategori
-        category_selectors = [
-            '.breadcrumb a',
-            '[class*="breadcrumb"] a',
-            '[class*="category"]'
-        ]
-        for selector in category_selectors:
-            cat_elems = soup.select(selector)
-            if cat_elems:
-                product_data['category'] = cat_elems[-1].get_text(strip=True)
-                break
+        # Kategori - önce data-category attribute'ünden al
+        category_elem = soup.select_one('[data-category]')
+        if category_elem:
+            category_value = category_elem.get('data-category', '').strip()
+            if category_value:
+                # Category formatı: "ТВ, Аудио и Електроника|Телевизори|32 "_ 42 ""
+                # Tüm kategori hiyerarşisini " > " ile birleştir
+                category_parts = [part.strip() for part in category_value.split('|') if part.strip()]
+                if category_parts:
+                    # Tüm kategorileri " > " ile birleştir
+                    product_data['category'] = ' > '.join(category_parts)
+                else:
+                    product_data['category'] = category_value
+        
+        # Eğer data-category bulunamadıysa, alternatif yöntemleri dene
+        if not product_data['category']:
+            category_selectors = [
+                '.breadcrumb a',
+                '[class*="breadcrumb"] a',
+                '[class*="category"]'
+            ]
+            for selector in category_selectors:
+                cat_elems = soup.select(selector)
+                if cat_elems:
+                    product_data['category'] = cat_elems[-1].get_text(strip=True)
+                    break
         
         # Açıklama - .collapsed-content .product-basic ul li elementlerinden
         desc_items = []

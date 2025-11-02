@@ -21,7 +21,8 @@ import time
 # Ayarlar
 PRODUCT_URLS_FILE = 'Product_URLs.xlsx'
 OUTPUT_FILE = 'TechnoMarket_Urunler.xlsx'
-MAX_PRODUCTS = 5  # İlk kaç ürün işlenecek
+MAX_PRODUCTS = 20  # İlk kaç ürün işlenecek
+SAVE_INTERVAL = 10  # Her kaç üründe bir Excel kaydedilsin
 
 def create_excel_template():
     """Excel şablonunu oluşturur"""
@@ -139,7 +140,12 @@ def main():
         product_name = product_data.get('product_name', '').strip()
         
         # Ürün adını çevir
-        translated_name = translate_text(product_name) if product_name else ''
+        translated_name = ''
+        if product_name:
+            print(f"    Ürün Adı Çevirisi:")
+            print(f"      Orijinal: {product_name}")
+            translated_name = translate_text(product_name)
+            print(f"      Çevrilmiş: {translated_name}")
         
         # Markayı başa ekle
         if brand and translated_name:
@@ -151,15 +157,30 @@ def main():
         else:
             final_product_name = ''
         
+        # Kategori çevirisi
+        category = product_data.get('category', '').strip()
+        translated_category = ''
+        if category:
+            print(f"    Kategori Çevirisi:")
+            print(f"      Orijinal: {category}")
+            translated_category = translate_text(category)
+            print(f"      Çevrilmiş: {translated_category}")
+        
         # Açıklamayı çevir
         description = product_data.get('description', '').strip()
         translated_description = ''
         if description:
+            print(f"    Açıklama Çevirisi:")
+            # Açıklama uzun olabilir, ilk 100 karakteri göster
+            desc_preview = description[:100] + '...' if len(description) > 100 else description
+            print(f"      Orijinal: {desc_preview}")
             # Açıklamayı çevir (Google Translator limitine uygun şekilde)
             try:
                 translated_description = translate_text(description)
+                translated_preview = translated_description[:100] + '...' if len(translated_description) > 100 else translated_description
+                print(f"      Çevrilmiş: {translated_preview}")
             except Exception as e:
-                print(f"    Açıklama çeviri hatası: {str(e)}")
+                print(f"      Çeviri hatası: {str(e)}")
                 translated_description = description
         
         # Görselleri dağıt: İlk görsel Ana görsel, sonraki 5 görsel Image 1-5
@@ -172,7 +193,7 @@ def main():
             'Product Name': final_product_name,
             'Price': product_data.get('price'),
             'Currency': 'BGN',
-            'Category': translate_text(product_data.get('category', '')),
+            'Category': translated_category,
             'Brand': brand,  # Marka çevrilmez, olduğu gibi alınır
             'Açıklama': translated_description,
             'Product URL': product_url,
@@ -192,8 +213,11 @@ def main():
         print(f"    Fiyat: {new_row['Price']} BGN" if new_row['Price'] else "    Fiyat: Bulunamadı")
         print(f"    Görseller: {len(product_data['images'])} adet")
         
-        # Her üründe bir kaydet (güvenlik için)
-        df.to_excel(OUTPUT_FILE, index=False)
+        # Her SAVE_INTERVAL üründe bir veya son ürün ise Excel'i kaydet
+        if idx % SAVE_INTERVAL == 0 or idx == len(product_urls):
+            print(f"\n💾 İlerleme kaydediliyor... ({idx}/{len(product_urls)} ürün işlendi, {stats['success']} başarılı)")
+            df.to_excel(OUTPUT_FILE, index=False)
+            print(f"✅ Excel dosyası güncellendi: {OUTPUT_FILE}\n")
         
         time.sleep(DELAY)
     
