@@ -33,6 +33,7 @@ def create_excel_template():
         'Currency',
         'Category',
         'Brand',
+        'Açıklama',
         'Ana görsel',
         'Image 1',
         'Image 2',
@@ -150,6 +151,17 @@ def main():
         else:
             final_product_name = ''
         
+        # Açıklamayı çevir
+        description = product_data.get('description', '').strip()
+        translated_description = ''
+        if description:
+            # Açıklamayı çevir (Google Translator limitine uygun şekilde)
+            try:
+                translated_description = translate_text(description)
+            except Exception as e:
+                print(f"    Açıklama çeviri hatası: {str(e)}")
+                translated_description = description
+        
         # Görselleri dağıt: İlk görsel Ana görsel, sonraki 5 görsel Image 1-5
         images = product_data.get('images', [])
         
@@ -162,6 +174,7 @@ def main():
             'Currency': 'BGN',
             'Category': translate_text(product_data.get('category', '')),
             'Brand': brand,  # Marka çevrilmez, olduğu gibi alınır
+            'Açıklama': translated_description,
             'Product URL': product_url,
             'Ana görsel': images[0] if len(images) > 0 else '',
             'Image 1': images[1] if len(images) > 1 else '',

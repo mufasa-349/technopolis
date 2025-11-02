@@ -184,17 +184,40 @@ def get_product_details(product_url, timeout=3):
                 product_data['category'] = cat_elems[-1].get_text(strip=True)
                 break
         
-        # Açıklama
-        desc_selectors = [
-            '.product-description',
-            '[class*="description"]',
-            '.product-details'
-        ]
-        for selector in desc_selectors:
-            desc_elem = soup.select_one(selector)
-            if desc_elem:
-                product_data['description'] = desc_elem.get_text(strip=True)
-                break
+        # Açıklama - .collapsed-content .product-basic ul li elementlerinden
+        desc_items = []
+        
+        # Önce .collapsed-content .product-basic ul li'den çek
+        basic_info = soup.select('.collapsed-content .product-basic ul li')
+        if basic_info:
+            for li in basic_info:
+                text = li.get_text(strip=True)
+                if text:
+                    # İkon metnini temizle (✓ işaretini kaldır)
+                    text = re.sub(r'^[^\w]*', '', text)
+                    if text:
+                        desc_items.append(text)
+        
+        # Eğer bulunamadıysa alternatif yöntemleri dene
+        if not desc_items:
+            desc_selectors = [
+                '.product-description',
+                '[class*="description"]',
+                '.product-details'
+            ]
+            for selector in desc_selectors:
+                desc_elem = soup.select_one(selector)
+                if desc_elem:
+                    desc_text = desc_elem.get_text(strip=True)
+                    if desc_text:
+                        desc_items.append(desc_text)
+                        break
+        
+        # Açıklamaları birleştir (satır başı ile)
+        if desc_items:
+            product_data['description'] = '\n'.join(desc_items)
+        else:
+            product_data['description'] = ''
         
         # Görseller - .slider-content içinden çek
         slider_content = soup.select_one('.slider-content')
