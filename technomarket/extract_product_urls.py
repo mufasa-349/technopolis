@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import re
 import time
+import os
 
 BASE_URL = 'https://www.technomarket.bg'
 HEADERS = {
@@ -56,6 +57,10 @@ def extract_product_urls(page_url):
                 else:
                     continue
                 
+                # PDF linklerini at
+                if '.pdf' in full_url.lower():
+                    continue
+                
                 # Ürün sayfası linklerini filtrele (kategori değil)
                 # Örnek: /televizor/neo-led-32h3m-hd-led-tv-09218598
                 if '/produkti/' not in full_url and full_url not in seen:
@@ -76,6 +81,22 @@ def main():
     print("TechnoMarket.bg Ürün Link Çekici")
     print("="*60)
     
+    # Mevcut Excel dosyasını oku (varsa)
+    existing_urls = []
+    try:
+        if os.path.exists(EXCEL_FILE):
+            print(f"\n📂 Mevcut Excel dosyası bulundu: {EXCEL_FILE}")
+            existing_df = pd.read_excel(EXCEL_FILE)
+            if 'Product URL' in existing_df.columns:
+                existing_urls = existing_df['Product URL'].dropna().astype(str).tolist()
+                existing_urls = [url.strip() for url in existing_urls if url.strip()]
+                print(f"  ✅ {len(existing_urls)} mevcut ürün linki yüklendi")
+            else:
+                print("  ⚠️  'Product URL' sütunu bulunamadı, yeni dosya oluşturulacak")
+    except Exception as e:
+        print(f"  ⚠️  Mevcut dosya okunamadı: {str(e)}")
+        print("  Yeni dosya oluşturulacak")
+    
     # Kullanıcıdan URL al
     print("\nGrid sayfasının URL'sini girin:")
     print("(Örnek: https://www.technomarket.bg/produkti/televizor)")
@@ -91,8 +112,8 @@ def main():
     print(f"\nİşlenen URL: {page_url}")
     print("-" * 60)
     
-    # Ürün linklerini çek
-    all_urls = []
+    # Ürün linklerini çek (mevcut URL'leri de dahil et)
+    all_urls = list(existing_urls)  # Mevcut URL'leri başlangıç listesine ekle
     
     # İlk sayfadan ürünleri çek
     urls = extract_product_urls(page_url)
@@ -136,7 +157,12 @@ def main():
     # Tekrarları temizle
     final_urls = list(dict.fromkeys(all_urls))
     
+    # Yeni eklenen URL sayısını hesapla
+    new_urls_count = len(final_urls) - len(existing_urls)
+    
     print(f"\n✅ Toplam {len(final_urls)} benzersiz ürün linki bulundu")
+    if existing_urls:
+        print(f"   ({len(existing_urls)} mevcut + {new_urls_count} yeni)")
     
     # Excel'e kaydet
     print("\n💾 Excel dosyasına kaydediliyor...")
@@ -145,6 +171,8 @@ def main():
     })
     df.to_excel(EXCEL_FILE, index=False)
     print(f"✅ Ürün linkleri '{EXCEL_FILE}' dosyasına kaydedildi")
+    if new_urls_count > 0:
+        print(f"   (+{new_urls_count} yeni link eklendi)")
     
     # Özet
     print("\n" + "="*60)
