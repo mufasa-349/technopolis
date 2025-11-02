@@ -138,22 +138,43 @@ def get_product_details(product_url, timeout=3):
                     if product_data['price']:
                         break
         
-        # Ürün ID (URL'den veya sayfadan)
-        url_match = re.search(r'/p/(\d+)|/product/(\d+)|product-(\d+)', product_url)
-        if url_match:
-            product_data['product_id'] = url_match.group(1) or url_match.group(2) or url_match.group(3)
+        # EAN/Barkod - tm-pointandplace elementinin ean attribute'ünden al
+        pointandplace = soup.select_one('tm-pointandplace')
+        if pointandplace:
+            ean = pointandplace.get('ean')
+            if ean:
+                product_data['ean'] = ean.strip()
         
-        # EAN/Barkod
-        ean_patterns = [
-            r'EAN[:\s]*(\d+)',
-            r'Barkod[:\s]*(\d+)',
-            r'Код на продукта[:\s]*(\d+)'
+        # Eğer tm-pointandplace'den bulunamadıysa, alternatif yöntemleri dene
+        if not product_data['ean']:
+            ean_patterns = [
+                r'EAN[:\s]*(\d+)',
+                r'Barkod[:\s]*(\d+)',
+                r'Код на продукта[:\s]*(\d+)'
+            ]
+            for pattern in ean_patterns:
+                match = re.search(pattern, soup.get_text(), re.IGNORECASE)
+                if match:
+                    product_data['ean'] = match.group(1)
+                    break
+        
+        # Ürün ID - Şu an EAN olarak bulunan değeri kullan (Код на продукта)
+        # Eğer bulunamazsa URL'den al
+        product_code_patterns = [
+            r'Код на продукта[:\s]*(\d+)',
+            r'Код[:\s]*(\d+)',
         ]
-        for pattern in ean_patterns:
+        for pattern in product_code_patterns:
             match = re.search(pattern, soup.get_text(), re.IGNORECASE)
             if match:
-                product_data['ean'] = match.group(1)
+                product_data['product_id'] = match.group(1)
                 break
+        
+        # Eğer hala bulunamadıysa URL'den al
+        if not product_data['product_id']:
+            url_match = re.search(r'/p/(\d+)|/product/(\d+)|product-(\d+)|/(\d{8})$', product_url)
+            if url_match:
+                product_data['product_id'] = url_match.group(1) or url_match.group(2) or url_match.group(3) or url_match.group(4)
         
         # Marka - önce data-brand attribute'ünden al (çeviri yok)
         brand_elem = soup.select_one('[data-brand]')
