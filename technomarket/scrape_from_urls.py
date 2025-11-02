@@ -67,17 +67,22 @@ def main():
             print(f"Mevcut sütunlar: {urls_df.columns.tolist()}")
             return
         
-        product_urls = urls_df['Product URL'].dropna().astype(str).tolist()
-        product_urls = [url.strip() for url in product_urls if url.strip()]
+        all_product_urls = urls_df['Product URL'].dropna().astype(str).tolist()
+        all_product_urls = [url.strip() for url in all_product_urls if url.strip()]
+        total_products = len(all_product_urls)
         
-        print(f"✅ {len(product_urls)} ürün linki bulundu")
+        print(f"✅ {total_products} ürün linki bulundu")
         
-        # İlk MAX_PRODUCTS kadarını al
-        if len(product_urls) > MAX_PRODUCTS:
-            product_urls = product_urls[:MAX_PRODUCTS]
-            print(f"⚠️  İlk {MAX_PRODUCTS} ürün işlenecek")
-        
-        print(f"📝 Toplam {len(product_urls)} ürün işlenecek")
+        # 1160. ürün dan devam et
+        START_FROM = 1160
+        if START_FROM > 1 and total_products >= START_FROM:
+            product_urls = all_product_urls[START_FROM - 1:]  # 0-indexed olduğu için -1
+            print(f"🔄 {START_FROM}. ürün dan devam ediliyor...")
+            print(f"📝 Kalan {len(product_urls)} ürün işlenecek")
+        else:
+            product_urls = all_product_urls
+            START_FROM = 1
+            print(f"📝 Tüm {len(product_urls)} ürün işlenecek")
         
     except Exception as e:
         print(f"❌ Dosya okuma hatası: {str(e)}")
@@ -105,8 +110,8 @@ def main():
     print("Ürün detayları çekiliyor...")
     print("="*60)
     
-    for idx, product_url in enumerate(product_urls, 1):
-        print(f"\n[{idx}/{len(product_urls)}] Ürün işleniyor...")
+    for idx, product_url in enumerate(product_urls, start=START_FROM):
+        print(f"\n[{idx}/{total_products}] Ürün işleniyor...")
         print(f"  URL: {product_url}")
         
         # Ürün detaylarını çek (3 saniye timeout)
