@@ -49,7 +49,7 @@ def translate_text(text, source='bg', target='tr'):
         return text
 
 def extract_price(price_text):
-    """Fiyat metninden sayısal değeri çıkarır"""
+    """Fiyat metninden sayısal değeri çıkarır (tam sayı olarak)"""
     if not price_text:
         return None
     
@@ -58,14 +58,16 @@ def extract_price(price_text):
     price_str = price_str.replace(',', '.').replace(' ', '')
     
     try:
-        return float(price_str)
+        # Virgülden sonraki kısmı at, tam sayı döndür
+        price_float = float(price_str)
+        return int(price_float)
     except:
         return None
 
-def get_product_details(product_url):
+def get_product_details(product_url, timeout=3):
     """Ürün sayfasından detayları çeker"""
     try:
-        response = requests.get(product_url, headers=HEADERS, timeout=10)
+        response = requests.get(product_url, headers=HEADERS, timeout=timeout)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
         
@@ -80,35 +82,61 @@ def get_product_details(product_url):
             'ean': None
         }
         
-        # Ürün adı
-        name_selectors = [
-            'h1.product-title',
-            'h1.product-name',
-            '.product-title',
-            'h1',
-            '[class*="product"][class*="name"]',
-            '[class*="product"][class*="title"]'
-        ]
-        for selector in name_selectors:
-            name_elem = soup.select_one(selector)
-            if name_elem:
-                product_data['product_name'] = name_elem.get_text(strip=True)
-                break
-        
-        # Fiyat
-        price_selectors = [
-            '.price',
-            '.product-price',
-            '[class*="price"]',
-            '[data-price]'
-        ]
-        for selector in price_selectors:
-            price_elem = soup.select_one(selector)
-            if price_elem:
-                price_text = price_elem.get_text(strip=True)
-                product_data['price'] = extract_price(price_text)
-                if product_data['price']:
+        # Ürün adı - önce .name span'ından al
+        name_elem = soup.select_one('.name')
+        if name_elem:
+            product_data['product_name'] = name_elem.get_text(strip=True)
+        else:
+            # Alternatif seçiciler
+            name_selectors = [
+                'h1.product-title',
+                'h1.product-name',
+                '.product-title',
+                'h1',
+                '[class*="product"][class*="name"]',
+                '[class*="product"][class*="title"]'
+            ]
+            for selector in name_selectors:
+                name_elem = soup.select_one(selector)
+                if name_elem:
+                    product_data['product_name'] = name_elem.get_text(strip=True)
                     break
+        
+        # Fiyat - TechnoMarket özel yapısı
+        # <div class="price"><tm-price> içinde <span class="bgn"><span class="primary">1,099</span><span class="secondary">00</span></span>
+        price_elem = soup.select_one('.price tm-price .bgn')
+        if price_elem:
+            # primary ve secondary span'larını bul
+            primary = price_elem.select_one('.primary')
+            secondary = price_elem.select_one('.secondary')
+            
+            if primary:
+                primary_text = primary.get_text(strip=True)
+                secondary_text = secondary.get_text(strip=True) if secondary else '00'
+                
+                # Binlik ayıracı (virgül) ve boşlukları temizle
+                primary_text = primary_text.replace(',', '').replace(' ', '').strip()
+                secondary_text = secondary_text.replace(',', '').replace(' ', '').strip()
+                
+                # Fiyatı birleştir (1099.00 gibi)
+                price_text = f"{primary_text}.{secondary_text}"
+                product_data['price'] = extract_price(price_text)
+        
+        # Eğer yukarıdaki yapı çalışmadıysa, genel yöntemi dene
+        if not product_data['price']:
+            price_selectors = [
+                '.price',
+                '.product-price',
+                '[class*="price"]',
+                '[data-price]'
+            ]
+            for selector in price_selectors:
+                price_elem = soup.select_one(selector)
+                if price_elem:
+                    price_text = price_elem.get_text(strip=True)
+                    product_data['price'] = extract_price(price_text)
+                    if product_data['price']:
+                        break
         
         # Ürün ID (URL'den veya sayfadan)
         url_match = re.search(r'/p/(\d+)|/product/(\d+)|product-(\d+)', product_url)
@@ -127,17 +155,22 @@ def get_product_details(product_url):
                 product_data['ean'] = match.group(1)
                 break
         
-        # Marka
-        brand_selectors = [
-            '[class*="brand"]',
-            '[data-brand]',
-            '.product-brand'
-        ]
-        for selector in brand_selectors:
-            brand_elem = soup.select_one(selector)
-            if brand_elem:
-                product_data['brand'] = brand_elem.get_text(strip=True)
-                break
+        # Marka - önce data-brand attribute'ünden al (çeviri yok)
+        brand_elem = soup.select_one('[data-brand]')
+        if brand_elem:
+            product_data['brand'] = brand_elem.get('data-brand', '').strip()
+        
+        # Eğer data-brand bulunamadıysa, diğer yöntemleri dene
+        if not product_data['brand']:
+            brand_selectors = [
+                '[class*="brand"]',
+                '.product-brand'
+            ]
+            for selector in brand_selectors:
+                brand_elem = soup.select_one(selector)
+                if brand_elem:
+                    product_data['brand'] = brand_elem.get_text(strip=True)
+                    break
         
         # Kategori
         category_selectors = [
