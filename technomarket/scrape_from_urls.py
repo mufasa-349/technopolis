@@ -150,6 +150,9 @@ def main():
         else:
             final_product_name = ''
         
+        # Görselleri dağıt: İlk görsel Ana görsel, sonraki 5 görsel Image 1-5
+        images = product_data.get('images', [])
+        
         # Yeni satır oluştur
         new_row = {
             'Product ID': product_data.get('product_id', ''),
@@ -160,13 +163,13 @@ def main():
             'Category': translate_text(product_data.get('category', '')),
             'Brand': brand,  # Marka çevrilmez, olduğu gibi alınır
             'Product URL': product_url,
-            'Ana görsel': product_data['images'][0] if product_data['images'] else '',
-            'Image 1': product_data['images'][1] if len(product_data['images']) > 1 else '',
-            'Image 2': product_data['images'][2] if len(product_data['images']) > 2 else '',
-            'Image 3': product_data['images'][3] if len(product_data['images']) > 3 else '',
-            'Image 4': product_data['images'][4] if len(product_data['images']) > 4 else '',
-            'Image 5': product_data['images'][5] if len(product_data['images']) > 5 else '',
-            'Diğer görseller': ', '.join(product_data['images'][6:]) if len(product_data['images']) > 6 else ''
+            'Ana görsel': images[0] if len(images) > 0 else '',
+            'Image 1': images[1] if len(images) > 1 else '',
+            'Image 2': images[2] if len(images) > 2 else '',
+            'Image 3': images[3] if len(images) > 3 else '',
+            'Image 4': images[4] if len(images) > 4 else '',
+            'Image 5': images[5] if len(images) > 5 else '',
+            'Diğer görseller': ''  # Boş bırakılıyor
         }
         
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)

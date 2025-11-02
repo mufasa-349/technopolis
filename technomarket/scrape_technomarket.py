@@ -196,27 +196,46 @@ def get_product_details(product_url, timeout=3):
                 product_data['description'] = desc_elem.get_text(strip=True)
                 break
         
-        # Görseller
-        img_selectors = [
-            '.product-gallery img',
-            '.product-images img',
-            '[class*="product"] img[src]',
-            'img[data-zoom-url]',
-            'img[data-large-url]'
-        ]
-        for selector in img_selectors:
-            imgs = soup.select(selector)
+        # Görseller - .slider-content içinden çek
+        slider_content = soup.select_one('.slider-content')
+        if slider_content:
+            imgs = slider_content.find_all('img')
             for img in imgs:
-                img_url = img.get('src') or img.get('data-src') or img.get('data-zoom-url') or img.get('data-large-url')
+                # Önce src, sonra data-src'yi kontrol et
+                img_url = img.get('src') or img.get('data-src')
                 if img_url:
+                    # URL'yi normalize et
                     if img_url.startswith('//'):
                         img_url = f"https:{img_url}"
                     elif img_url.startswith('/'):
                         img_url = urljoin(BASE_URL, img_url)
-                    if img_url not in product_data['images']:
+                    
+                    # Tekrarları önle
+                    if img_url and img_url not in product_data['images']:
                         product_data['images'].append(img_url)
-            if product_data['images']:
-                break
+        
+        # Eğer slider-content'ten görsel bulunamadıysa, alternatif yöntemleri dene
+        if not product_data['images']:
+            img_selectors = [
+                '.product-gallery img',
+                '.product-images img',
+                '[class*="product"] img[src]',
+                'img[data-zoom-url]',
+                'img[data-large-url]'
+            ]
+            for selector in img_selectors:
+                imgs = soup.select(selector)
+                for img in imgs:
+                    img_url = img.get('src') or img.get('data-src') or img.get('data-zoom-url') or img.get('data-large-url')
+                    if img_url:
+                        if img_url.startswith('//'):
+                            img_url = f"https:{img_url}"
+                        elif img_url.startswith('/'):
+                            img_url = urljoin(BASE_URL, img_url)
+                        if img_url not in product_data['images']:
+                            product_data['images'].append(img_url)
+                if product_data['images']:
+                    break
         
         return product_data
     
