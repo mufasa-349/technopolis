@@ -97,62 +97,76 @@ def main():
         print(f"  ⚠️  Mevcut dosya okunamadı: {str(e)}")
         print("  Yeni dosya oluşturulacak")
     
-    # Kullanıcıdan URL al
-    print("\nGrid sayfasının URL'sini girin:")
+    # Kullanıcıdan toplu URL listesi al
+    print("\nGrid sayfalarının URL'lerini girin (her satıra bir URL, boş satır ile bitirin):")
     print("(Örnek: https://www.technomarket.bg/produkti/televizor)")
-    page_url = input().strip()
     
-    if not page_url:
+    page_urls = []
+    while True:
+        url = input().strip()
+        if not url:
+            break
+        if url:
+            if not url.startswith('http'):
+                url = urljoin(BASE_URL, url)
+            page_urls.append(url)
+    
+    if not page_urls:
         print("⚠️  URL girilmedi!")
         return
     
-    if not page_url.startswith('http'):
-        page_url = urljoin(BASE_URL, page_url)
-    
-    print(f"\nİşlenen URL: {page_url}")
+    print(f"\n✅ {len(page_urls)} kategori URL'si alındı")
     print("-" * 60)
     
     # Ürün linklerini çek (mevcut URL'leri de dahil et)
     all_urls = list(existing_urls)  # Mevcut URL'leri başlangıç listesine ekle
     
-    # İlk sayfadan ürünleri çek
-    urls = extract_product_urls(page_url)
-    all_urls.extend(urls)
-    
-    # Sayfalama varsa diğer sayfaları da çek
-    print("\nSayfalama kontrol ediliyor...")
-    page_num = 2
-    max_pages = 100  # Maksimum sayfa sayısı
-    
-    while page_num <= max_pages:
-        # Sayfa URL'sini oluştur (technomarket.bg formatına göre)
-        # URL formatı: /produkti/televizor?page=2
-        if '?' in page_url:
-            # Zaten parametre var, page ekle veya güncelle
-            if 'page=' in page_url:
-                next_page_url = re.sub(r'page=\d+', f'page={page_num}', page_url)
+    # Her kategori URL'si için işlem yap
+    for cat_idx, page_url in enumerate(page_urls, 1):
+        print(f"\n[{cat_idx}/{len(page_urls)}] İşlenen kategori: {page_url}")
+        print("-" * 60)
+        
+        # İlk sayfadan ürünleri çek
+        urls = extract_product_urls(page_url)
+        all_urls.extend(urls)
+        
+        # Sayfalama varsa diğer sayfaları da çek
+        print("Sayfalama kontrol ediliyor...")
+        page_num = 2
+        max_pages = 100  # Maksimum sayfa sayısı
+        
+        while page_num <= max_pages:
+            # Sayfa URL'sini oluştur (technomarket.bg formatına göre)
+            # URL formatı: /produkti/televizor?page=2
+            if '?' in page_url:
+                # Zaten parametre var, page ekle veya güncelle
+                if 'page=' in page_url:
+                    next_page_url = re.sub(r'page=\d+', f'page={page_num}', page_url)
+                else:
+                    next_page_url = f"{page_url}&page={page_num}"
             else:
-                next_page_url = f"{page_url}&page={page_num}"
-        else:
-            next_page_url = f"{page_url}?page={page_num}"
+                next_page_url = f"{page_url}?page={page_num}"
+            
+            time.sleep(DELAY)
+            urls = extract_product_urls(next_page_url)
+            
+            if not urls:
+                print(f"  Sayfa {page_num}'de ürün bulunamadı, sayfalama sona erdi.")
+                break
+            
+            # Önceki sayfalarda olan URL'ler varsa durdur
+            new_urls = [u for u in urls if u not in all_urls]
+            if not new_urls:
+                print(f"  Sayfa {page_num}'de yeni ürün yok, sayfalama sona erdi.")
+                break
+            
+            all_urls.extend(new_urls)
+            print(f"  Toplam {len(all_urls)} ürün linki toplandı")
+            
+            page_num += 1
         
-        time.sleep(DELAY)
-        urls = extract_product_urls(next_page_url)
-        
-        if not urls:
-            print(f"  Sayfa {page_num}'de ürün bulunamadı, sayfalama sona erdi.")
-            break
-        
-        # Önceki sayfalarda olan URL'ler varsa durdur
-        new_urls = [u for u in urls if u not in all_urls]
-        if not new_urls:
-            print(f"  Sayfa {page_num}'de yeni ürün yok, sayfalama sona erdi.")
-            break
-        
-        all_urls.extend(new_urls)
-        print(f"  Toplam {len(all_urls)} ürün linki toplandı")
-        
-        page_num += 1
+        print(f"✅ Kategori {cat_idx} tamamlandı. Toplam {len(all_urls)} ürün linki")
+        time.sleep(DELAY)  # Kategoriler arası bekleme
     
     # Tekrarları temizle
     final_urls = list(dict.fromkeys(all_urls))
@@ -178,7 +192,11 @@ def main():
     print("\n" + "="*60)
     print("ÖZET")
     print("="*60)
+    print(f"İşlenen kategori sayısı: {len(page_urls)}")
     print(f"Toplam ürün sayısı: {len(final_urls)}")
+    if existing_urls:
+        print(f"  - Mevcut: {len(existing_urls)}")
+        print(f"  - Yeni eklenen: {new_urls_count}")
     print(f"Excel dosyası: {EXCEL_FILE}")
     
     # İlk 5 linki göster
