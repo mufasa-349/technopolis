@@ -73,8 +73,8 @@ def main():
         
         print(f"✅ {total_products} ürün linki bulundu")
         
-        # 1160. ürün dan devam et
-        START_FROM = 1160
+        # 3690. ürün dan devam et
+        START_FROM = 3690
         if START_FROM > 1 and total_products >= START_FROM:
             product_urls = all_product_urls[START_FROM - 1:]  # 0-indexed olduğu için -1
             print(f"🔄 {START_FROM}. ürün dan devam ediliyor...")
